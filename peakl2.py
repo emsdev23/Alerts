@@ -1,6 +1,4 @@
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from redmail import EmailSender
 import mysql.connector
 import time
 
@@ -46,7 +44,8 @@ smtp_username = 'emsteamrp@gmail.com'
 smtp_password = 'eebpnvgyfzzdtitb'
 
 sender = 'emsteamrp@gmail.com'
-recipient = ['energyteam@respark.iitm.ac.in','arun.kumar@tenet.res.in']
+recipient = 'energyteam@respark.iitm.ac.in'
+# 'energyteam@respark.iitm.ac.in',
 
 def peaklev2():
     while True:
@@ -60,29 +59,26 @@ def peaklev2():
    
         emscur = ubuntudb.cursor()
 
-        emscur.execute('select totalApparentPower2,polledTime from bmsunprocessed_prodv13.hvacSchneider7230Polling WHERE polledTime >= CURDATE() order by polledTime desc limit 1')
+        emscur.execute('select totalApparentPower2,polledTime from bmsunprocessed_prodv13.hvacSchneider7230Polling WHERE polledTime >= CURDATE() order by polledTime desc limit 4')
 
         res = emscur.fetchall()
         value = None
+        val = []
         try:
-            if res[0][0] != None and res[0][1] != None:
-                value = round(res[0][0],2)
-                date = str(res[0][1])[0:10]
-                polledtime = str(res[0][1])[11:16]
-            else:
-                value = 0
-                polledTime = ""
+            if len(res) > 0:
+                for i in res:
+                    val.append(i[0])
+            value = max(val)
+            polledtime = str(res[0][1])[11:]
+            date = str(res[0][1])[0:10]
         except IndexError:
             continue
+
+        email = EmailSender(host="smtp.gmail.com", port=587,username='emsteamrp@gmail.com',password='eebpnvgyfzzdtitb')
+
         if value != None:
             print('peak l2',value)
             if value>=4200 and value<=4399:
-       
-                message = MIMEMultipart('alternative')
-                message['Subject'] = 'EMS ALERT -  Peak Demand Limit-level 2 breach'
-                message['From'] = sender
-                message['To'] = recipient
-
                 html_content = html_head + f"""
                 <body style="background-color:white;">
                     <div class="container">
@@ -122,15 +118,12 @@ def peaklev2():
                                 <td>Building Load</td>
                             </tr>
                         </table>
-                        <center><a href="http://43.205.196.66:3000/peakgraph" target="_blank">View Dashboard</a></center>
+                        <center><a href="https://ems.tre100.in/PeakDemandAnalysis" target="_blank">View Dashboard</a></center>
                         <br>
                         <hr>
                         <p>EMS team</p></center>
                 </body>"""
 
-                html_part = MIMEText(html_content, 'html')
-
-                message.attach(html_part)
            
                 sql = 'INSERT INTO alertLogs(alerttime,alert,limitvalue,systemName,severity,action) VALUES(%s,%s,%s,%s,%s,%s)'
                 val = (res[0][1],'Peak Demand Limt - Level 2 Breach',value,'Building Load','High','Mail sent')
@@ -139,12 +132,16 @@ def peaklev2():
                 print("Peakdemand alert saved")
                 ubuntudb.commit()
            
-                with smtplib.SMTP(smtp_server, smtp_port) as server:
-                    server.starttls()
-                    server.login(smtp_username, smtp_password)
-                    server.sendmail(sender, recipient, message.as_string())
-                    print('L2 - Email sent successfully!')
-                time.sleep(600)   
+                with email:
+                    email.send(
+                    subject="EMS ALERT -  Peak Demand Limit-level 2 breach",
+                    sender="emsteamrp@gmail.com",
+                    # arun.kumar@tenet.res.in faheera@respark.iitm.ac.in
+                    receivers=["arun.kumar@tenet.res.in","ems@respark.iitm.ac.in"],
+                    html=html_content
+                    )
+                    print("Mail Sent")
+                    time.sleep(300)   
         emscur.close()
         time.sleep(60)
 
