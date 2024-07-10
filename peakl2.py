@@ -67,7 +67,7 @@ def peaklev2():
         try:
             if len(res) > 0:
                 for i in res:
-                    if i!= None:
+                    if i[0] != None:
                         val.append(i[0])
             value = max(val)
             polledtime = str(res[0][1])[11:]
