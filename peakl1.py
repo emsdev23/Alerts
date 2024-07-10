@@ -94,7 +94,7 @@ def peaklev1():
         print('peak l1',val)
         if len(lis) == 60:
             for i in lis:
-                if i !=None:
+                if i[0] !=None:
                     vallis.append(i[0])
             print(lis)
             lis =[]
